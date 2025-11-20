@@ -1,0 +1,82 @@
+docker compose up -d --force-recreate --remove-orphans
+
+docker exec -it kafka-diplomska-kafka-1  bash
+
+kafka-topics.sh --create --topic raw-data \
+  --bootstrap-server localhost:9092 \
+  --partitions 1 \
+  --replication-factor 1
+
+kafka-topics.sh --create --topic filtered-data \
+  --bootstrap-server localhost:9092 \
+  --partitions 1 \
+  --replication-factor 1
+
+//producer.py
+
+//filter.py
+
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic raw-data --from-beginning
+
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic filtered-data --from-beginning
+
+docker exec -it kafka kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic filtered-data(optional delete)
+
+//kafka_to_MiniO.py
+pip install pandas pyarrow sqlalchemy psycopg2-binary boto3
+
+all_df['transaction_date'] = pd.to_datetime(all_df['transaction_date'], errors='raise', utc=False, infer_datetime_format=True)
+
+drop table if exists transaction_fact;
+drop table if exists dim_category;
+drop table if exists dim_user;
+drop table if exists dim_date;
+drop table if exists dim_payment;
+
+CREATE TABLE dim_date (
+    date_id         BIGINT PRIMARY KEY,
+    year            INT,
+    quarter         INT,
+    month           INT,
+    weekday         VARCHAR(10),
+    day             INT,
+    hour            INT,
+    minute          INT
+);
+
+CREATE TABLE dim_user (
+    user_id         VARCHAR(255) PRIMARY KEY,
+    name            VARCHAR(100),
+    address         VARCHAR(255),
+    phone_number    VARCHAR(20),
+    city            VARCHAR(100),
+    country         VARCHAR(100),
+    email           VARCHAR(150)
+);
+
+CREATE TABLE dim_category (
+    category_id     BIGINT PRIMARY KEY,
+    category_type   VARCHAR(100),
+    merchant        VARCHAR(150)
+);
+
+CREATE TABLE dim_payment (
+    payment_id          BIGINT PRIMARY KEY,
+    payment_type        VARCHAR(50),
+    payment_currency    VARCHAR(10),
+    payment_method      VARCHAR(50)
+);
+
+CREATE TABLE transaction_fact (
+    transaction_id      VARCHAR(255) PRIMARY KEY,
+    category_id         BIGINT NOT NULL,
+    date_id             BIGINT NOT NULL,
+    user_id             VARCHAR(255) NOT NULL,
+    payment_id          BIGINT NOT NULL,
+    transaction_amount  NUMERIC(18,2) NOT NULL,
+
+    CONSTRAINT fk_category FOREIGN KEY (category_id) REFERENCES dim_category(category_id),
+    CONSTRAINT fk_date FOREIGN KEY (date_id) REFERENCES dim_date(date_id),
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES dim_user(user_id),
+    CONSTRAINT fk_payment FOREIGN KEY (payment_id) REFERENCES dim_payment(payment_id)
+);

@@ -1,0 +1,23 @@
+# ---- Core ETL Dependencies ----
+pandas
+pyarrow
+duckdb
+boto3
+s3fs
+
+# ---- Kafka ----
+confluent-kafka
+
+# ---- Airflow core + providers ----
+apache-airflow==2.10.2
+apache-airflow-providers-amazon
+apache-airflow-providers-apache-kafka
+apache-airflow-providers-cncf-kubernetes
+apache-airflow-providers-common-sql
+apache-airflow-providers-docker
+apache-airflow-providers-http
+apache-airflow-providers-sftp
+
+# ---- Extra utilities ----
+python-dotenv
+requests

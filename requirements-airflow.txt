@@ -1,0 +1,13 @@
+# Requirements for Airflow containers
+# These packages will be installed in Airflow worker/scheduler containers
+
+# Core ETL Dependencies
+pandas
+pyarrow
+duckdb
+boto3
+s3fs
+
+# Kafka
+confluent-kafka
+
