@@ -4,10 +4,9 @@ import os
 import time
 from confluent_kafka import Producer, KafkaException
 
-# --- Kafka Producer Config ---
-# Use container endpoint if running in Airflow, otherwise use localhost
+
 KAFKA_BOOTSTRAP = os.getenv('KAFKA_BOOTSTRAP', 'localhost:9092')
-if os.path.exists('/opt/airflow'):  # Running in Airflow container
+if os.path.exists('/opt/airflow'):  
     KAFKA_BOOTSTRAP = 'kafka:19092'
 
 print(f"📡 Connecting to Kafka at {KAFKA_BOOTSTRAP}")
@@ -20,7 +19,6 @@ producer_conf = {
 
 p = Producer(producer_conf)
 
-# Verify topic exists by trying to get metadata
 topic = 'raw-data'
 print(f"🔍 Verifying topic '{topic}' exists...")
 for i in range(10):
@@ -45,9 +43,7 @@ def delivery_report(err, msg):
     else:
         print(f"✅ Delivered to topic={msg.topic()} partition={msg.partition()} offset={msg.offset()}")
 
-# --- Produce Messages from CSV ---
 
-# Find transactions.csv - check scripts folder first (for Airflow), then current directory
 csv_path = 'transactions.csv'
 if os.path.exists('/opt/airflow/scripts/transactions.csv'):
     csv_path = '/opt/airflow/scripts/transactions.csv'
@@ -63,6 +59,5 @@ with open(csv_path, mode='r') as f:
         p.produce(topic, value=value, on_delivery=delivery_report)
         p.poll(0)
 
-# Wait for all messages to be delivered
 p.flush()
 print("🚀 Finished producing all records to Kafka topic:", topic)

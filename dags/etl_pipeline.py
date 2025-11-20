@@ -19,13 +19,11 @@ def create_kafka_topic_if_not_exists():
     import subprocess
     import time
     
-    # Use container endpoint if running in Airflow
     kafka_host = 'kafka' if os.path.exists('/opt/airflow') else 'localhost'
     kafka_port = '19092' if os.path.exists('/opt/airflow') else '9092'
     
     print(f"🔍 Checking if Kafka topic 'raw-data' exists...")
     
-    # First, try using confluent_kafka AdminClient
     try:
         from confluent_kafka.admin import AdminClient, NewTopic
         
@@ -34,7 +32,6 @@ def create_kafka_topic_if_not_exists():
         
         admin_client = AdminClient({'bootstrap.servers': bootstrap_servers})
         
-        # Wait for Kafka to be ready
         for i in range(10):
             try:
                 metadata = admin_client.list_topics(timeout=5)
@@ -47,7 +44,6 @@ def create_kafka_topic_if_not_exists():
                 else:
                     raise
         
-        # Check if topic exists
         try:
             metadata = admin_client.list_topics(timeout=10)
             if 'raw-data' in metadata.topics:
@@ -56,13 +52,12 @@ def create_kafka_topic_if_not_exists():
         except:
             pass
         
-        # Create topic
         topic_list = [NewTopic('raw-data', num_partitions=1, replication_factor=1)]
         futures = admin_client.create_topics(topic_list)
         
         for topic, future in futures.items():
             try:
-                future.result(timeout=10)  # Wait for topic creation
+                future.result(timeout=10) 
                 print(f"✅ Topic '{topic}' created successfully")
             except Exception as e:
                 error_str = str(e).lower()
@@ -75,9 +70,7 @@ def create_kafka_topic_if_not_exists():
         print(f"⚠️ Could not create topic using AdminClient: {e}")
         print(f"🔄 Falling back to kafka-topics.sh command...")
         
-        # Fallback: use kafka-topics.sh via docker exec
         try:
-            # Find kafka container
             result = subprocess.run(
                 ['docker', 'ps', '--filter', 'name=kafka', '--format', '{{.Names}}'],
                 capture_output=True,
@@ -88,7 +81,6 @@ def create_kafka_topic_if_not_exists():
             
             if kafka_container:
                 print(f"📦 Found Kafka container: {kafka_container}")
-                # Create topic using kafka-topics.sh
                 cmd = [
                     'docker', 'exec', kafka_container,
                     'kafka-topics.sh', '--create',
@@ -113,12 +105,10 @@ def create_kafka_topic_if_not_exists():
             print(f"❌ Failed to create topic: {e2}")
             raise
     
-    # Wait a moment for topic to be fully ready
     print("⏳ Waiting 2 seconds for topic to be fully ready...")
     time.sleep(2)
     print("✅ Topic creation complete")
 
-# Default arguments
 default_args = {
     'owner': 'etl_team',
     'depends_on_past': False,
@@ -128,25 +118,22 @@ default_args = {
     'retry_delay': timedelta(minutes=1),
 }
 
-# DAG definition
 dag = DAG(
     'etl_pipeline',
     default_args=default_args,
     description='Complete ETL pipeline from Kafka to Gold layer',
-    schedule_interval=None,  # Manual trigger or set to your desired schedule
+    schedule_interval=None, 
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=['etl', 'kafka', 'datawarehouse'],
 )
 
-# Task 1: Create Kafka topic (if it doesn't exist)
 create_kafka_topic = PythonOperator(
     task_id='create_kafka_topic',
     python_callable=create_kafka_topic_if_not_exists,
     dag=dag,
 )
 
-# Task 2: Produce data to Kafka
 produce_to_kafka = BashOperator(
     task_id='produce_to_kafka',
     bash_command="""
@@ -156,7 +143,6 @@ produce_to_kafka = BashOperator(
     dag=dag,
 )
 
-# Task 3: Bronze - Consume from Kafka and write to MinIO
 bronze_write = BashOperator(
     task_id='bronze_write',
     bash_command="""
@@ -166,7 +152,6 @@ bronze_write = BashOperator(
     dag=dag,
 )
 
-# Task 4: Silver - Transform Bronze to Silver
 bronze_to_silver = BashOperator(
     task_id='bronze_to_silver',
     bash_command="""
@@ -176,7 +161,6 @@ bronze_to_silver = BashOperator(
     dag=dag,
 )
 
-# Task 5: Gold - Transform Silver to Gold (Data Warehouse)
 silver_to_gold = BashOperator(
     task_id='silver_to_gold',
     bash_command="""
@@ -186,6 +170,5 @@ silver_to_gold = BashOperator(
     dag=dag,
 )
 
-# Define task dependencies
 create_kafka_topic >> produce_to_kafka >> bronze_write >> bronze_to_silver >> silver_to_gold
 

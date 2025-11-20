@@ -9,18 +9,14 @@ import pyarrow.parquet as pq
 import boto3
 from confluent_kafka import Consumer
 
-# -------------------------------------------------------------------
-# 1. ALWAYS use container endpoints because this runs inside Airflow
-# -------------------------------------------------------------------
+
 KAFKA_BOOTSTRAP = "kafka:19092"
 MINIO_ENDPOINT = "http://minio:9000"
 
 print(f"Using Kafka bootstrap: {KAFKA_BOOTSTRAP}")
 print(f"Using MinIO endpoint: {MINIO_ENDPOINT}")
 
-# -------------------------------------------------------------------
-# 2. Kafka consumer for 1-minute Airflow job (no infinite loop!)
-# -------------------------------------------------------------------
+
 consumer_conf = {
     'bootstrap.servers': KAFKA_BOOTSTRAP,
     'group.id': 'bronze-writer',
@@ -31,9 +27,7 @@ consumer_conf = {
 consumer = Consumer(consumer_conf)
 consumer.subscribe(['raw-data'])
 
-# -------------------------------------------------------------------
-# 3. MinIO client
-# -------------------------------------------------------------------
+
 s3 = boto3.client(
     's3',
     endpoint_url=MINIO_ENDPOINT,
@@ -63,9 +57,7 @@ def ensure_bucket():
 
 ensure_bucket()
 
-# -------------------------------------------------------------------
-# 4. Read messages for up to 30 seconds or until we get at least some messages
-# -------------------------------------------------------------------
+
 print("📡 Reading Kafka messages (will wait up to 30 seconds)...")
 records = []
 start = time.time()
@@ -77,7 +69,6 @@ while (time.time() - start < max_wait_time):
     msg = consumer.poll(1.0)
     
     if msg is None:
-        # If we have messages and haven't seen one in 5 seconds, we're probably done
         if len(records) >= min_messages and (time.time() - last_message_time) > 5:
             print(f"✅ Collected {len(records)} messages, no new messages for 5 seconds. Proceeding...")
             break
@@ -100,9 +91,6 @@ while (time.time() - start < max_wait_time):
 consumer.close()
 print(f"📡 Finished reading. Total messages collected: {len(records)}")
 
-# -------------------------------------------------------------------
-# 5. Write to Bronze Parquet
-# -------------------------------------------------------------------
 if len(records) == 0:
     print("⚠️ No new messages. Exiting.")
     exit(0)

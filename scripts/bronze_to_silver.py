@@ -4,15 +4,10 @@ import uuid
 import os
 import sys
 
-# ============================================================
-# 1. Connect to DuckDB
-# ============================================================
+
 con = duckdb.connect("etl.duckdb")
 
-# ============================================================
-# 2. MinIO (S3) client config
-# ============================================================
-# Use container endpoint if running in Airflow, otherwise use localhost
+
 MINIO_ENDPOINT = "http://localhost:9000"
 if os.path.exists('/opt/airflow'):
     MINIO_ENDPOINT = "http://minio:9000"
@@ -25,10 +20,7 @@ s3 = boto3.client(
     region_name="us-east-1"
 )
 
-# ============================================================
-# 3. DuckDB S3 Settings
-# ============================================================
-# Extract hostname from endpoint URL
+
 s3_host = MINIO_ENDPOINT.replace('http://', '').replace('https://', '')
 con.execute(f"""
     SET s3_endpoint='{s3_host}';
@@ -45,9 +37,7 @@ silver_prefix = "silver"
 
 print("✅ Connected to DuckDB and configured MinIO access")
 
-# ============================================================
-# 4. List ALL parquet files from Bronze
-# ============================================================
+
 resp = s3.list_objects_v2(
     Bucket=bucket_name,
     Prefix=f"{bronze_prefix}/"
@@ -71,9 +61,7 @@ print(f"📦 Found {len(parquet_files)} Bronze parquet files")
 
 print("🚀 Transforming Bronze → Silver...")
 
-# ============================================================
-# 5. Transform each Bronze parquet → cleaned Silver parquet
-# ============================================================
+
 for file in parquet_files:
 
     # Generate unique parquet name
@@ -125,8 +113,6 @@ try:
 except Exception as e:
     print("⚠️ Could not preview Silver data:", e)
 
-# ============================================================
-# 7. Close DB
-# ============================================================
+
 con.close()
 print("🎉 Silver ETL complete, connection closed.")
